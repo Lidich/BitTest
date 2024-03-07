@@ -1,0 +1,82 @@
+Есть таблицы:
+лицевые счета lsClient с полями client_id integer, idhome integer,idflat integer
+дома    homes    с полями idhome integer, idstreet integer, home_number varchar(10), sq numeric(15,2), build_date datetime
+квартиры flats с полями idflat integer, idhome integer, flat_number varchar(10), sq numeric(15,2)
+улицы   di_street с полями idstreet integer, idcity integer, street_name varchar(150)
+города  di_city с полями idcity integer, city_name varchar(60)
+
+
+Задание 1
+
+Написать запрос, отбирающий все лицевые счета улицы Звездная, города Ярославля.
+
+SELECT *
+FROM lsClient
+WHERE idhome IN (
+    SELECT idhome
+    FROM homes
+    WHERE idstreet = (
+        SELECT idstreet
+        FROM di_street
+        WHERE street_name = 'Звездная' AND idcity = (SELECT idcity FROM di_city WHERE city_name = 'Ярославль')
+    )
+);
+
+
+Задание 2
+
+Написать запрос, подсчитывающий количество лицевых счетов дома по адресу г.Ярославль ул.Звездная дом 3, 
+у которых площадь квартир больше 42 кв.м.
+
+SELECT COUNT(*)
+FROM lsClient
+WHERE idhome = (
+	SELECT idhome
+	FROM homes
+	WHERE idstreet = (
+		SELECT idstreet
+		FROM di_street
+		WHERE street_name = 'Звездная' AND idcity = (SELECT idcity FROM di_city WHERE city_name = 'Ярославль') AND home_number = '3'
+		) AND idflat IN (SELECT idflat FROM flats WHERE sq > 42)
+		);
+
+
+Задание 3
+
+Написать запрос, отбирающий все дома с указанием полного адреса и срока эксплуатации(лет), расположенные по адресу 
+улица Светлая г. Ростов, дата постройки которых превышает 25 лет.
+
+SELECT CONCAT(di_city.city_name, ', ', di_street.street_name, ' ', homes.home_number) AS full_address,
+       YEAR(NOW()) - YEAR(homes.build_date) AS years_of_exploitation
+FROM homes
+JOIN di_street ON homes.idstreet = di_street.idstreet
+JOIN di_city ON di_street.idcity = di_city.idcity
+WHERE di_city.city_name = 'Ростов'
+  AND di_street.street_name = 'Светлая'
+  AND YEAR(homes.build_date) < YEAR(NOW()) - 25;
+
+Задание 4
+
+Написать запрос, отбирающий дома с наименьшей датой постройки build_date и площадью дома, превышающей сумму площадей всех его
+квартир на 100 кв.м.
+
+SELECT homes.*, SUM(flats.sq) as total_flat_sq
+FROM homes JOIN flats ON homes.idhome = flats.idhome
+GROUP BY homes.idhome
+HAVING MIN(build_date)=build_date AND (SUM(flats.sq)+100)<homes.sq 
+
+Задание 5
+
+Написать функцию, возвращающую площадь дома по его идентификатору(idhome)
+
+CREATE FUNCTION getHomeSquare(home_id INT)
+RETURNS NUMERIC(15,2)
+BEGIN
+    DECLARE home_sq NUMERIC(15,2);
+    SELECT sq INTO home_sq
+    FROM homes
+    WHERE idhome = home_id;
+    RETURN home_sq;
+END;
+
+
